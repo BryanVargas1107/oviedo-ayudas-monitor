@@ -227,3 +227,6 @@ data/*.db
 # Python
 __pycache__/
 *.pycdata/*.html 
+
+data/*.html
+data/*.json
