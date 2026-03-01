@@ -205,3 +205,25 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Entorno virtual
+.venv/
+
+# Variables de entorno
+.env
+
+# Base de datos local
+data/*.db
+
+# Caché del modelo de sentence-transformers
+.model_cache/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# VS Code
+.vscode/
+
+# Python
+__pycache__/
+*.pycdata/*.html 
