@@ -7,6 +7,9 @@ Todas las constantes y parámetros están aquí para no tener
 import os
 from dotenv import load_dotenv
 
+# Raíz del proyecto (un nivel arriba de /src/)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 load_dotenv()
 
 # ── Scraper ───────────────────────────────────────────────────────────────────
@@ -40,7 +43,7 @@ SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", 0.45))
 
 # ── Base de datos ─────────────────────────────────────────────────────────────
 
-DB_PATH = "data/convocatorias.db"
+DB_PATH = os.path.join(PROJECT_ROOT, "data", "convocatorias.db")
 
 # ── Gmail SMTP ────────────────────────────────────────────────────────────────
 
