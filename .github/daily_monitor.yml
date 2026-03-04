@@ -1,0 +1,101 @@
+name: Daily Grants Monitor
+
+on:
+  schedule:
+    # Ejecuta cada día a las 08:00 UTC (10:00 hora España en verano)
+    - cron: "0 8 * * *"
+  
+  # Permite ejecutar el pipeline manualmente desde GitHub
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Ejecutar sin enviar emails (dry-run)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. Código fuente ───────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python ─────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── 3. Cache de dependencias pip ──────────────────────────
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # ── 4. Cache del modelo sentence-transformers (~120MB) ────
+      - name: Cache sentence-transformers model
+        uses: actions/cache@v4
+        with:
+          path: .model_cache
+          key: ${{ runner.os }}-model-paraphrase-multilingual-MiniLM-L12-v2
+
+      # ── 5. Instalar dependencias ───────────────────────────────
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ── 6. Crear carpeta data (no está en el repo) ─────────────
+      - name: Create data directory
+        run: mkdir -p data
+
+      # ── 7. Restaurar base de datos desde cache ─────────────────
+      - name: Restore database cache
+        uses: actions/cache@v4
+        with:
+          path: data/convocatorias.db
+          key: ${{ runner.os }}-db-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-db-
+
+      # ── 8. Configurar variables de entorno ─────────────────────
+      - name: Set environment variables
+        run: |
+          echo "GMAIL_USER=${{ secrets.GMAIL_USER }}" >> $GITHUB_ENV
+          echo "GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }}" >> $GITHUB_ENV
+          echo "SIMILARITY_THRESHOLD=0.45" >> $GITHUB_ENV
+          echo "REQUEST_DELAY_SECONDS=1.5" >> $GITHUB_ENV
+
+      # ── 9. Ejecutar pipeline ───────────────────────────────────
+      - name: Run pipeline
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python -m scripts.run_pipeline --dry-run
+          else
+            python -m scripts.run_pipeline
+          fi
+
+      # ── 10. Guardar base de datos actualizada en cache ─────────
+      - name: Save database to cache
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: data/convocatorias.db
+          key: ${{ runner.os }}-db-${{ github.run_id }}
+
+      # ── 11. Subir DB como artefacto (descargable desde GitHub) ─
+      - name: Upload database artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: convocatorias-db-${{ github.run_id }}
+          path: data/convocatorias.db
+          retention-days: 7
